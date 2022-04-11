@@ -10,7 +10,7 @@ const FirstChild = () => (
 const SecondChild = () => (
   <section>
     二儿子
-    <UserModify />
+    <Wrapper />
   </section>
 );
 const LastChild = () => <section>小儿子</section>;
@@ -52,20 +52,24 @@ const reducer = (state, { type, payload }) => {
   }
 };
 
-const UserModify = () => {
+const Wrapper = () => {
   const { appState, setAppState } = useContext(appContext);
+  const dispatch = (action) => {
+    setAppState(reducer(appState, action));
+  };
+  return <UserModify state={appState} dispatch={dispatch} />;
+};
 
+const UserModify = ({ state, dispatch }) => {
   const onChange = (e) => {
-    setAppState(
-      reducer(appState, {
-        type: "modify",
-        payload: { name: e.target.value },
-      })
-    );
+    dispatch({
+      type: "modify",
+      payload: { name: e.target.value },
+    });
   };
   return (
     <div>
-      User: <input type="text" value={appState.user.name} onChange={onChange} />
+      User: <input type="text" value={state.user.name} onChange={onChange} />
     </div>
   );
 };
