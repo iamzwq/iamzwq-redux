@@ -1,40 +1,44 @@
-import React, { useState, useContext } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import "./App.css";
 
-const FirstChild = () => (
-  <section>
-    大儿子
-    <User />
-  </section>
-);
-const SecondChild = () => (
-  <section>
-    二儿子
-    <UserModify />
-  </section>
-);
-const LastChild = () => <section>小儿子</section>;
+const store = {
+  state: {
+    user: { name: "iamz", age: 18 },
+  },
+  setState(newState) {
+    store.state = newState;
+    store.lisenters.forEach((fn) => fn(store.state));
+  },
+  // 订阅队列
+  lisenters: [],
+  // 订阅函数，返回值为取消订阅
+  subscribe(fn) {
+    store.lisenters.push(fn);
+    return () => {
+      const index = store.lisenters.indexOf(fn);
+      store.lisenters.splice(index, 1);
+    };
+  },
+};
 
-const appContext = React.createContext(null);
-export default function App() {
-  const [appState, setAppState] = useState({
-    user: { name: "iamzwq", age: 18 },
-  });
+const connect = (Component) => {
+  return (props) => {
+    const { state, setState } = useContext(appContext);
+    const [, update] = useState({});
+    const dispatch = (action) => {
+      // setState会遍历订阅，执行订阅传入的方法
+      setState(reducer(state, action));
+    };
 
-  const contextValue = { appState, setAppState };
-
-  return (
-    <appContext.Provider value={contextValue}>
-      <FirstChild />
-      <SecondChild />
-      <LastChild />
-    </appContext.Provider>
-  );
-}
-
-const User = () => {
-  const { appState } = useContext(appContext);
-  return <div>User: {appState.user.name}</div>;
+    // 在这里增加订阅，然后dispatch里会调用store.setState()
+    useEffect(() => {
+      store.subscribe(() => {
+        // update来重新渲染页面
+        update({});
+      });
+    }, []);
+    return <Component {...props} state={state} dispatch={dispatch} />;
+  };
 };
 
 const reducer = (state, { type, payload }) => {
@@ -48,21 +52,41 @@ const reducer = (state, { type, payload }) => {
         },
       };
     default:
-      return appState;
+      return store.state;
   }
 };
 
-const connect = (Component) => {
-  return (props) => {
-    const { appState, setAppState } = useContext(appContext);
-    const dispatch = (action) => {
-      setAppState(reducer(appState, action));
-    };
-    return <Component {...props} state={appState} dispatch={dispatch} />;
-  };
+const FirstChild = () => {
+  console.log("大儿子执行了");
+  return (
+    <section>
+      大儿子
+      <User />
+    </section>
+  );
+};
+const SecondChild = () => {
+  console.log("二儿子执行了");
+  return (
+    <section>
+      二儿子
+      <UserModify />
+    </section>
+  );
+};
+const LastChild = () => {
+  console.log("小儿子执行了");
+  return <section>小儿子</section>;
 };
 
+// 订阅了才会触发页面重新渲染，所以要用connect包裹
+const User = connect(({ state }) => {
+  console.log("User组件执行了");
+  return <div>User: {state.user.name}</div>;
+});
+
 const UserModify = connect(({ state, dispatch, children }) => {
+  console.log("UserModify组件执行了");
   const onChange = (e) => {
     dispatch({
       type: "modify",
@@ -77,3 +101,14 @@ const UserModify = connect(({ state, dispatch, children }) => {
     </div>
   );
 });
+
+const appContext = React.createContext(null);
+export default function App() {
+  return (
+    <appContext.Provider value={store}>
+      <FirstChild />
+      <SecondChild />
+      <LastChild />
+    </appContext.Provider>
+  );
+}
